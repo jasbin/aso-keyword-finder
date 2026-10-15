@@ -160,10 +160,11 @@ def _count(value: object) -> int:
 
 
 def _rating(value: object) -> float | None:
+    """Average star rating (1..5); Apple reports 0 for apps nobody has rated yet, which is None here."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     rating = float(value)
-    return rating if math.isfinite(rating) else None
+    return rating if math.isfinite(rating) and rating > 0 else None
 
 
 def parse_search(raw: bytes) -> list[AppSummary]:

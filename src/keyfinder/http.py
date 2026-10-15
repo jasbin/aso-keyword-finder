@@ -25,14 +25,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timezone
 from types import TracebackType
-from typing import TYPE_CHECKING
 
 import httpx
 
 from keyfinder.config import Settings
-
-if TYPE_CHECKING:
-    from keyfinder.stores.base import StoreUnavailableError
+from keyfinder.stores.base import StoreRateLimitedError, StoreUnavailableError
 
 __all__ = ["HttpClient", "RequestStats"]
 
@@ -58,7 +55,7 @@ class RequestStats:
 
 def _backoff_delay(attempt: int) -> float:
     """Sleep before retry ``attempt + 1`` (``attempt`` is the 0-based index of the failed try)."""
-    base = min(BACKOFF_CAP_SECONDS, BACKOFF_BASE_SECONDS * 2**attempt)
+    base = min(BACKOFF_CAP_SECONDS, BACKOFF_BASE_SECONDS * 2.0**attempt)
     # Jitter only de-synchronises clients; it has no security purpose.
     return base + random.uniform(0, BACKOFF_JITTER_SECONDS)  # noqa: S311
 
@@ -98,14 +95,6 @@ def _describe(exc: Exception) -> str:
 
 def _attempts(count: int) -> str:
     return f"{count} attempt" if count == 1 else f"{count} attempts"
-
-
-def _store_error(message: str, *, rate_limited: bool = False) -> StoreUnavailableError:
-    # Imported lazily: keyfinder.stores imports this module (for HttpClient), so a
-    # module-level import here would be circular whenever keyfinder.http is imported first.
-    from keyfinder.stores.base import StoreRateLimitedError, StoreUnavailableError
-
-    return StoreRateLimitedError(message) if rate_limited else StoreUnavailableError(message)
 
 
 class HttpClient:
@@ -185,37 +174,31 @@ class HttpClient:
             except httpx.TransportError as exc:  # connect/read errors, timeouts, proxy refusals
                 reason = _describe(exc)
                 if attempt >= self._max_retries:
-                    raise self._failed(
-                        _store_error(f"{host} is unreachable ({reason}; {_attempts(attempt + 1)})"),
-                        method,
-                        host,
-                        path,
-                    ) from exc
+                    error = StoreUnavailableError(
+                        f"{host} is unreachable ({reason}; {_attempts(attempt + 1)})"
+                    )
+                    raise self._failed(error, method, host, path) from exc
                 delay = _backoff_delay(attempt)
             except httpx.RequestError as exc:  # too many redirects, undecodable body: retrying won't help
-                raise self._failed(
-                    _store_error(f"request to {host} failed ({_describe(exc)})"), method, host, path
-                ) from exc
+                error = StoreUnavailableError(f"request to {host} failed ({_describe(exc)})")
+                raise self._failed(error, method, host, path) from exc
             else:
                 status = response.status_code
                 if response.is_success:
                     return response.content
                 if not _is_retryable_status(status):
-                    raise self._failed(
-                        _store_error(f"{host} rejected the request (HTTP {status} {response.reason_phrase})"),
-                        method,
-                        host,
-                        path,
+                    error = StoreUnavailableError(
+                        f"{host} rejected the request (HTTP {status} {response.reason_phrase})"
                     )
+                    raise self._failed(error, method, host, path)
                 if attempt >= self._max_retries:
                     if status == 429:
-                        error = _store_error(
+                        error = StoreRateLimitedError(
                             f"{host} is rate limiting requests (HTTP 429; {_attempts(attempt + 1)}); "
-                            "try again later",
-                            rate_limited=True,
+                            "try again later"
                         )
                     else:
-                        error = _store_error(
+                        error = StoreUnavailableError(
                             f"{host} is unavailable (HTTP {status}; {_attempts(attempt + 1)})"
                         )
                     raise self._failed(error, method, host, path)

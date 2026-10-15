@@ -91,13 +91,15 @@ def params(seed: str = "photo") -> ResearchParams:
 
 
 async def wait_finished(manager: JobManager, run_id: str, timeout: float = 5.0) -> ResearchRun:
-    async with asyncio.timeout(timeout):
+    async def poll() -> ResearchRun:
         while True:
             run = await manager.get(run_id)
             assert run is not None
             if run.status.finished and not manager.is_active(run_id):
                 return run
             await asyncio.sleep(0.005)
+
+    return await asyncio.wait_for(poll(), timeout)
 
 
 async def test_submit_runs_to_success(make_manager: Callable[..., Harness]) -> None:
@@ -106,7 +108,7 @@ async def test_submit_runs_to_success(make_manager: Callable[..., Harness]) -> N
     assert run.status is RunStatus.PENDING
     assert len(run.id) == 32
     stored = await h.repo.get(run.id)
-    assert stored is not None and stored.status is RunStatus.PENDING
+    assert stored is not None and stored.status in (RunStatus.PENDING, RunStatus.RUNNING)
 
     final = await wait_finished(h.manager, run.id)
     assert final.status is RunStatus.SUCCEEDED

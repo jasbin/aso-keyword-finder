@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.python-version
+
+# Secrets / local config
+.env
+.env.*
+!.env.example
+
+# Runtime data (KEYFINDER_DATA_DIR, SQLite databases)
+/data/
+.keyfinder/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3
+
+# Exports produced while experimenting
+/keywords-*.csv
+/keywords-*.json
+
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.dmypy.json
+
+# Coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

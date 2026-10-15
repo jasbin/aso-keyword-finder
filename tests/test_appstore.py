@@ -225,14 +225,16 @@ def test_parse_search_empty() -> None:
 def test_parse_search_skips_unusable_results_and_coerces_fields() -> None:
     raw = json.dumps(
         {
-            "resultCount": 7,
+            "resultCount": 9,
             "results": [
                 {"trackId": 1, "trackName": "One", "userRatingCount": -3, "averageUserRating": "4.5"},
                 {"trackName": "No id"},
                 {"trackId": 2},
                 "not a dict",
                 {"trackId": True, "trackName": "Bool id"},
+                {"trackId": "²", "trackName": "Non-ASCII digit id"},
                 {"trackId": "3", "trackName": "String id", "userRatingCount": 12.0, "averageUserRating": 3},
+                {"trackId": 4, "trackName": "Four", "userRatingCount": "many", "artistName": None},
                 {"trackId": 1, "trackName": "Duplicate of one"},
             ],
         }
@@ -240,11 +242,13 @@ def test_parse_search_skips_unusable_results_and_coerces_fields() -> None:
     assert parse_search(raw) == [
         AppSummary(app_id="1", title="One", developer="", ratings=0, rating=None, url=None),
         AppSummary(app_id="3", title="String id", ratings=12, rating=3.0),
+        AppSummary(app_id="4", title="Four", developer="", ratings=0, rating=None),
     ]
 
 
 def test_parse_search_ignores_non_finite_numbers() -> None:
-    raw = b'{"results": [{"trackId": 9, "trackName": "X", "userRatingCount": NaN, "averageUserRating": Infinity}]}'
+    item = b'{"trackId": 9, "trackName": "X", "userRatingCount": NaN, "averageUserRating": Infinity}'
+    raw = b'{"results": [' + item + b"]}"
     assert parse_search(raw) == [AppSummary(app_id="9", title="X", ratings=0, rating=None)]
 
 

@@ -236,11 +236,17 @@ async def test_retry_after_seconds_is_honoured(
     assert clock.sleeps == [expected]
 
 
+@pytest.mark.parametrize("usegmt", [True, False], ids=["GMT", "-0000"])
 @pytest.mark.parametrize(("offset", "expected"), [(12, 12.0), (-30, 0.0), (3600, 60.0)])
 async def test_retry_after_http_date_is_honoured(
-    settings: Settings, respx_mock: respx.MockRouter, clock: FakeClock, offset: int, expected: float
+    settings: Settings,
+    respx_mock: respx.MockRouter,
+    clock: FakeClock,
+    offset: int,
+    expected: float,
+    usegmt: bool,
 ) -> None:
-    when = email.utils.formatdate(clock.time() + offset, usegmt=True)
+    when = email.utils.formatdate(clock.time() + offset, usegmt=usegmt)
     respx_mock.get(URL).mock(
         side_effect=[httpx.Response(429, headers={"Retry-After": when}), httpx.Response(200)]
     )
@@ -341,6 +347,17 @@ async def test_query_strings_are_scrubbed_from_exception_details(
     assert "secret" not in message
     assert "country=us" not in message
     assert f"{URL} (refused)" in message
+
+
+async def test_long_exception_details_are_truncated(
+    settings: Settings, respx_mock: respx.MockRouter, clock: FakeClock
+) -> None:
+    respx_mock.get(URL).mock(side_effect=httpx.ConnectError("x" * 5000))
+    async with HttpClient(settings) as http:
+        with pytest.raises(StoreUnavailableError) as excinfo:
+            await http.get(URL)
+    assert len(str(excinfo.value)) < 300
+    assert "…" in str(excinfo.value)
 
 
 async def test_redirect_loop_fails_without_retry(

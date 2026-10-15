@@ -48,6 +48,12 @@ def raw_db(cache_path: Path, cache: ResponseCache) -> Iterator[sqlite3.Connectio
     conn.close()
 
 
+def test_exposes_configuration(cache: ResponseCache, cache_path: Path) -> None:
+    assert cache.path == cache_path
+    assert cache.ttl_seconds == 60
+    assert cache.enabled
+
+
 async def test_round_trips_json_values(cache: ResponseCache) -> None:
     values = {
         "list": ["meditation", "meditation app"],

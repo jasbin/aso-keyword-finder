@@ -78,6 +78,20 @@ def test_json_includes_exception_and_survives_unserialisable_extras(
     assert record["nan"] == "nan"
 
 
+def test_json_includes_stack_info(capsys: pytest.CaptureFixture[str]) -> None:
+    configure_logging("INFO", "json")
+    logging.getLogger(LOGGER_NAME).info("where am I", stack_info=True)
+    (record,) = _json_lines(capsys.readouterr().err)
+    assert "test_json_includes_stack_info" in str(record["stack_info"])
+
+
+def test_json_uses_prerendered_exception_text() -> None:
+    record = logging.LogRecord(LOGGER_NAME, logging.ERROR, __file__, 1, "failed", None, None)
+    record.exc_text = "Traceback (most recent call last): ..."
+    payload = json.loads(JsonFormatter().format(record))
+    assert payload["exc_info"] == "Traceback (most recent call last): ..."
+
+
 def test_extra_fields_cannot_clobber_core_keys() -> None:
     record = logging.LogRecord(LOGGER_NAME, logging.INFO, __file__, 1, "real message", None, None)
     record.ts = "forged"

@@ -27,6 +27,9 @@ _COUNTRY_RE = re.compile(r"[a-z]{2}")
 _NON_SPACE_RE = re.compile(r"\S")
 _JSON = json.JSONDecoder()
 
+_BAD_RESPONSE = "Google Play suggest response not recognised"
+_BAD_PAYLOAD = "Google Play suggest payload not recognised"
+
 
 def build_suggest_form(term: str) -> dict[str, str]:
     """Form body for the IJ4APc (search suggest) RPC.
@@ -51,7 +54,7 @@ def _iter_json_values(text: str) -> Iterator[object]:
         try:
             value, pos = _JSON.raw_decode(text, start.start())
         except (ValueError, RecursionError) as exc:
-            raise StoreParseError(f"Google Play suggest response not recognised: malformed JSON ({exc})") from exc
+            raise StoreParseError(f"{_BAD_RESPONSE}: malformed JSON ({exc})") from exc
         yield value
 
 
@@ -68,21 +71,20 @@ def _find_rpc_envelope(text: str, rpc_id: str) -> list[object] | None:
 
 def _suggestion_entries(data: object) -> list[object]:
     """``data[0][0]`` of the decoded payload; empty when the store has no suggestions."""
-    what = "Google Play suggest payload not recognised"
     if data is None:
         return []
     if not isinstance(data, list):
-        raise StoreParseError(f"{what}: top level is {type(data).__name__}, expected a list")
+        raise StoreParseError(f"{_BAD_PAYLOAD}: top level is {type(data).__name__}, expected a list")
     if not data or data[0] is None:
         return []
     groups = data[0]
     if not isinstance(groups, list):
-        raise StoreParseError(f"{what}: data[0] is {type(groups).__name__}, expected a list")
+        raise StoreParseError(f"{_BAD_PAYLOAD}: data[0] is {type(groups).__name__}, expected a list")
     if not groups or groups[0] is None:
         return []
     entries = groups[0]
     if not isinstance(entries, list):
-        raise StoreParseError(f"{what}: data[0][0] is {type(entries).__name__}, expected a list")
+        raise StoreParseError(f"{_BAD_PAYLOAD}: data[0][0] is {type(entries).__name__}, expected a list")
     return entries
 
 
@@ -97,30 +99,26 @@ def parse_suggest(raw: bytes) -> list[str]:
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
-        raise StoreParseError(f"Google Play suggest response not recognised: not UTF-8 ({exc})") from exc
+        raise StoreParseError(f"{_BAD_RESPONSE}: not UTF-8 ({exc})") from exc
     text = text.lstrip().removeprefix(XSSI_PREFIX)
     envelope = _find_rpc_envelope(text, SUGGEST_RPC_ID)
     if envelope is None:
-        raise StoreParseError(f"Google Play suggest response not recognised: no {SUGGEST_RPC_ID} envelope")
+        raise StoreParseError(f"{_BAD_RESPONSE}: no {SUGGEST_RPC_ID} envelope")
     payload = envelope[2]
     if payload is None or payload == "":
         if len(envelope) > 5 and envelope[5] is not None:
             logger.debug("Google Play %s returned no payload, status %r", SUGGEST_RPC_ID, envelope[5])
         return []
     if not isinstance(payload, str):
-        raise StoreParseError(
-            f"Google Play suggest payload not recognised: {type(payload).__name__}, expected a JSON string"
-        )
+        raise StoreParseError(f"{_BAD_PAYLOAD}: {type(payload).__name__}, expected a JSON string")
     try:
         data = json.loads(payload)
     except (ValueError, RecursionError) as exc:
-        raise StoreParseError(f"Google Play suggest payload not recognised: malformed JSON ({exc})") from exc
+        raise StoreParseError(f"{_BAD_PAYLOAD}: malformed JSON ({exc})") from exc
     entries = _suggestion_entries(data)
     terms = [e[0] for e in entries if isinstance(e, list) and e and isinstance(e[0], str)]
     if entries and not terms:
-        raise StoreParseError(
-            f"Google Play suggest payload not recognised: none of the {len(entries)} entries has a term"
-        )
+        raise StoreParseError(f"{_BAD_PAYLOAD}: none of the {len(entries)} entries has a term")
     return list(dict.fromkeys(t for t in map(normalize_term, terms) if t))
 
 

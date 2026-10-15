@@ -107,17 +107,18 @@ def _load_document(raw: bytes, what: str) -> object:
     body = raw.lstrip()
     if body.startswith(_UTF8_BOM):
         body = body[len(_UTF8_BOM) :].lstrip()
+    preview = body[:40]
     if body.startswith((b"bplist", b"<")):
         try:
             return plistlib.loads(body)
         except Exception as exc:  # plistlib raises an undocumented mix (ExpatError, ValueError, ...)
-            raise StoreParseError(f"{what}: malformed plist ({exc})") from exc
+            raise StoreParseError(f"{what}: not a valid plist ({exc}): {preview!r}") from exc
     if body.startswith((b"{", b"[")):
         try:
             return json.loads(body)
         except (ValueError, RecursionError) as exc:
             raise StoreParseError(f"{what}: malformed JSON ({exc})") from exc
-    raise StoreParseError(f"{what}: expected a plist or JSON document, got {body[:40]!r}")
+    raise StoreParseError(f"{what}: expected a plist or JSON document, got {preview!r}")
 
 
 def parse_hints(raw: bytes) -> list[str]:
@@ -146,7 +147,7 @@ def _app_id(value: object) -> str | None:
         return None
     if isinstance(value, int):
         return str(value)
-    if isinstance(value, str) and value.isdigit():
+    if isinstance(value, str) and value.isascii() and value.isdigit():
         return value
     return None
 

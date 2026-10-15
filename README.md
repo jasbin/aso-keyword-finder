@@ -334,8 +334,6 @@ curl -s localhost:8000/api/runs/<id> -H "X-API-Key: $KEYFINDER_API_KEY"
 curl -s -OJ "localhost:8000/api/runs/<id>/export?format=csv" -H "X-API-Key: $KEYFINDER_API_KEY"
 ```
 
-FastAPI also generates interactive documentation at `/docs` and the schema at `/openapi.json`.
-
 ---
 
 ## Configuration

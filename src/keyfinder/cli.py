@@ -390,7 +390,12 @@ async def _execute(
                 request_counter=lambda: http.stats.requests,
                 cache_hits=_hit_counter(client),
             )
-            return await engine.run()
+            try:
+                return await engine.run()
+            finally:
+                # The last progress emission can predate the final requests (e.g. the
+                # retries of the request that made the run fail).
+                run.progress.requests = max(run.progress.requests, http.stats.requests)
     finally:
         if cache is not None:
             cache.close()
@@ -409,8 +414,14 @@ async def _research(
     """
     run.status = RunStatus.RUNNING
     run.started_at = utcnow()
+
+    async def track(progress: Progress) -> None:
+        # Keep the engine's counters (requests, cache hits) on the run, also for failed runs.
+        run.progress = progress
+        await on_progress(progress)
+
     try:
-        run.results = await _execute(run, settings, use_cache=use_cache, on_progress=on_progress)
+        run.results = await _execute(run, settings, use_cache=use_cache, on_progress=track)
     except StoreError as exc:
         run.status = RunStatus.FAILED
         run.error = _store_error_message(exc, run.params.store)
@@ -423,7 +434,9 @@ async def _research(
         run.finished_at = utcnow()
     count = len(run.results)
     run.status = RunStatus.SUCCEEDED
-    run.progress = Progress(stage=Stage.DONE, done=count, total=count, keywords=count)
+    run.progress = run.progress.model_copy(
+        update={"stage": Stage.DONE, "done": count, "total": count, "keywords": count}
+    )
 
 
 async def _save_run(run: ResearchRun, settings: Settings) -> None:

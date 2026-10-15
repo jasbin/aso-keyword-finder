@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -49,6 +50,18 @@ def make_run(run_id: str, *, minutes: int = 0, status: RunStatus = RunStatus.SUC
     )
 
 
+@contextmanager
+def connect(path: Path) -> Iterator[sqlite3.Connection]:
+    """A direct connection that commits on success and is always closed (sqlite3's own
+    context manager only commits, leaving the connection open)."""
+    conn = sqlite3.connect(path)
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
+
 @pytest.fixture
 async def repo(tmp_path: Path) -> AsyncIterator[RunRepository]:
     repository = RunRepository(tmp_path / "nested" / "runs.db")
@@ -63,7 +76,7 @@ async def test_init_creates_parent_dir_and_is_idempotent(tmp_path: Path) -> None
     await repository.init()
     await repository.init()
     assert path.exists()
-    with sqlite3.connect(path) as conn:
+    with connect(path) as conn:
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         columns = {row[1] for row in conn.execute("PRAGMA table_info(runs)")}
         indexes = {row[1] for row in conn.execute("PRAGMA index_list(runs)")}
@@ -187,7 +200,7 @@ async def test_reopen_keeps_data(tmp_path: Path) -> None:
 async def test_unreadable_row_is_skipped(repo: RunRepository) -> None:
     await repo.save(make_run("good", minutes=1))
     await repo.save(make_run("bad", minutes=2))
-    with sqlite3.connect(repo.path) as conn:
+    with connect(repo.path) as conn:
         conn.execute("UPDATE runs SET data = '{not json', params = 'nope' WHERE id = 'bad'")
     assert await repo.get("bad") is None
     assert [s.id for s in await repo.list()] == ["good"]
@@ -195,7 +208,7 @@ async def test_unreadable_row_is_skipped(repo: RunRepository) -> None:
 
 async def test_newer_schema_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "runs.db"
-    with sqlite3.connect(path) as conn:
+    with connect(path) as conn:
         conn.execute("PRAGMA user_version = 99")
     repository = RunRepository(path)
     with pytest.raises(RuntimeError, match="newer"):

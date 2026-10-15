@@ -78,7 +78,8 @@ position_part = 1 - (min(position, 10) - 1) / 10
 popularity    = round(10 + 75 * min(prefix_part, 1) + 15 * position_part)   # clamped 0..100
 ```
 
-If a keyword never appears, `chars_typed` defaults to 5 and its position counts as the worst.
+If a keyword never appears from any of its own prefixes, it gets a fixed popularity of 5 and its
+`chars_typed` stays empty. A missing position counts as the worst.
 `--no-probe` skips this stage. It is much faster, but the popularity scores get rougher.
 
 ### 3. Difficulty: look at who already ranks (App Store only)
@@ -177,9 +178,11 @@ docker run --rm -v keyfinder-data:/data aso-keyword-finder keyfinder research "h
 keyfinder [--version] COMMAND [ARGS]...
 ```
 
-Progress goes to stderr and results go to stdout, so piping and redirection work as you would
-expect. Exit codes: `0` for success, `1` for a store error (blocked, rate-limited, unparseable
-response), `2` for invalid input.
+Progress, the run id, warnings and errors go to stderr; stdout carries only data (the table or
+JSON), so piping and redirection work as you would expect. Exit codes: `0` for success, `1` for a
+store error (blocked, rate-limited, unparseable response), an unknown or ambiguous run id, or an
+I/O error, `2` for invalid input or configuration, `130` when interrupted with Ctrl-C.
+Global options: `-v` / `-vv` (INFO / DEBUG logging) and `--log-format text|json`.
 
 ### `research`: run a keyword search
 
@@ -207,10 +210,12 @@ Examples:
 keyfinder research meditation
 keyfinder research "budget planner" --store play --country gb --limit 100
 keyfinder research meditation --no-probe --no-difficulty -o meditation.csv
-keyfinder research yoga --json | jq '.[0:10]'
+keyfinder research yoga --json | jq '.results[0:10]'
 ```
 
-Unless you pass `--no-save`, the run is saved to history and its id is printed.
+Unless you pass `--no-save`, the run is saved to history and its id is printed to stderr.
+`--json` prints the whole run (id, params, status, results), the same shape as `show --json`
+and the JSON export. Failed and interrupted runs are saved as `failed` / `cancelled`.
 
 ### `serve`: start the web UI and API
 

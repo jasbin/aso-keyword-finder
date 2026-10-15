@@ -65,6 +65,7 @@ class _Job:
     client: StoreClient
     task: asyncio.Task[None] | None = None
     last_persist: float = float("-inf")
+    request_baseline: int | None = None  # http.stats.requests when the run started
 
 
 def _friendly_error(exc: StoreError) -> str:
@@ -207,6 +208,7 @@ class JobManager:
             run.error = INTERNAL_ERROR
             run.finished_at = utcnow()
             logger.exception("run %s failed with an unexpected error", run.id, extra={"run_id": run.id})
+        self._final_counters(job)
         await self._persist_final(run)
 
     async def _start(self, job: _Job) -> None:
@@ -221,6 +223,7 @@ class JobManager:
         # http.stats is shared by every run, so when runs overlap this per-run delta also counts
         # requests made by the other runs in the meantime: it is approximate by design.
         baseline = self._http.stats.requests
+        job.request_baseline = baseline
         client = job.client
 
         async def on_progress(progress: Progress) -> None:
@@ -239,7 +242,17 @@ class JobManager:
             cache_hits=(lambda: client.hits) if isinstance(client, CachedStoreClient) else None,
         )
 
+    def _final_counters(self, job: _Job) -> None:
+        """Bring progress counters up to date: the last progress emission can predate the
+        final requests (e.g. the retries of the request that made the run fail)."""
+        if job.request_baseline is not None:
+            requests = self._http.stats.requests - job.request_baseline
+            job.run.progress.requests = max(job.run.progress.requests, requests)
+        if isinstance(job.client, CachedStoreClient):
+            job.run.progress.cache_hits = max(job.run.progress.cache_hits, job.client.hits)
+
     async def _finish_cancelled(self, job: _Job) -> None:
+        self._final_counters(job)
         run = job.run
         run.status = RunStatus.CANCELLED
         run.finished_at = utcnow()

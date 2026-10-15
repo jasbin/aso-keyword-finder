@@ -78,7 +78,7 @@ class ResponseCache:
     async def set(self, namespace: str, key: str, value: Any) -> None   # value must be JSON-serialisable
     async def purge_expired(self) -> int
     async def clear(self) -> int
-    async def stats(self) -> dict[str, int]       # {"entries": n, "expired": m}
+    async def stats(self) -> dict[str, int]       # {"entries": all rows incl. expired, "expired": m}
     def close(self) -> None
 ```
 stdlib `sqlite3`, WAL mode, one connection (`check_same_thread=False`) guarded by a
@@ -131,7 +131,11 @@ def create_store_client(params: ResearchParams, http: HttpClient,
 ```
 Namespace = f"{store}:{country}:{language}". Re-export the error classes,
 StoreClient, AppStoreClient, GooglePlayClient, CachedStoreClient, STOREFRONTS.
-Type alias `StoreClientFactory = Callable[[ResearchParams, HttpClient, ResponseCache | None], StoreClient]`.
+Type alias `StoreClientFactory = Callable[[ResearchParams, "HttpClient", "ResponseCache | None"], StoreClient]`.
+**Import direction:** `http.py` imports `keyfinder.stores.base` at runtime, so nothing under
+`keyfinder.stores` may import `keyfinder.http` (or `keyfinder.cache`) at runtime — only under
+`TYPE_CHECKING`, with string forward references. Namespaces use `params.store.value`
+(never `f"{params.store}"`, which differs between Python 3.10 and 3.11+).
 
 ## scoring.py
 ```python
@@ -141,7 +145,7 @@ def popularity_score(term: str, chars_typed: int | None, position: int | None,
 def difficulty_score(term: str, apps: Sequence[AppSummary]) -> int
 def opportunity_score(popularity: int, difficulty: int | None) -> int | None
 ```
-Keep the prototype's algorithms (see `git show HEAD:keyfinder.py`), with
+Keep the prototype's algorithms (see `git show 021cf20:keyfinder.py`), with
 `position` now **1-based** (None treated as worst): popularity =
 `round(10 + 75*min(prefix_part,1) + 15*position_part)`, prefix_part =
 `1 - chars/len + 1/len`, position_part = `1 - (min(pos,list_size)-1)/list_size`;
@@ -160,7 +164,7 @@ class ResearchEngine:
                  cache_hits: Callable[[], int] | None = None) -> None
     async def run(self) -> list[KeywordResult]
 ```
-Algorithm (generalises the prototype, see `git show HEAD:keyfinder.py`):
+Algorithm (generalises the prototype, see `git show 021cf20:keyfinder.py`):
 1. **Expanding**: suggest(seed) MUST succeed (any `StoreError` propagates → fail fast).
    Then `seed + " " + c` for c in a..z (bounded concurrency). If depth == 2, also
    suggest(k) for each discovered keyword k (not the seed) — new terms still count
@@ -249,7 +253,12 @@ Auth: if settings.api_key set, every /api/* route except /api/meta requires head
 `X-API-Key: <key>` or `Authorization: Bearer <key>` — constant-time compare
 (`secrets.compare_digest`) — else 401 `{"detail":"invalid or missing API key"}`.
 Middleware: security headers on all responses (CSP `default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'`, X-Content-Type-Options nosniff, Referrer-Policy no-referrer); request log line (method, path, status, ms). CORS only if settings.cors_origins.
-Errors: JSON `{"detail": ...}` everywhere.
+Errors: JSON `{"detail": ...}` everywhere (unhandled → 500 `{"detail":"internal server error"}`).
+Additional statuses: `POST /api/runs` → 429 when 100 runs are already queued/running
+(`jobs.QueueFullError`), 503 while shutting down (`jobs.JobManagerClosedError`).
+An empty `KEYFINDER_API_KEY` means auth off (`env_ignore_empty=True` in Settings).
+`/docs` and `/redoc` are disabled (their CDN assets violate the CSP); `/openapi.json` is served.
+No module-level `app`: use `uvicorn --factory keyfinder.api:get_app`.
 
 ## cli.py (Typer + Rich)
 ```python
@@ -257,7 +266,7 @@ app = typer.Typer(...)
 def main() -> None   # entry point; maps StoreError -> exit 1 with red message, bad input -> exit 2
 ```
 Commands:
-- `keyfinder research SEED [--store appstore|play] [--country us] [--lang en] [--limit 50] [--depth 1] [--no-probe] [--no-difficulty] [-o/--output FILE(.csv|.json)] [--no-cache] [--no-save] [--json]` — runs the engine in-process (asyncio.run), Rich progress bar from Progress callbacks (to stderr), Rich table of results to stdout (`--json` prints JSON to stdout instead, no table). Saves the run to history unless --no-save. Prints run id.
+- `keyfinder research SEED [--store appstore|play] [--country us] [--lang en] [--limit 50] [--depth 1] [--no-probe] [--no-difficulty] [-o/--output FILE(.csv|.json)] [--no-cache] [--no-save] [--json]` — runs the engine in-process (asyncio.run), Rich progress bar from Progress callbacks (to stderr), Rich table of results to stdout (`--json` prints JSON to stdout instead, no table). Saves the run to history unless --no-save (failed/cancelled runs too). Prints run id **to stderr**; `--json` prints the whole run (`run_to_json`). Exit codes: 0 ok; 1 store error / unknown or ambiguous run id / I/O; 2 invalid input or config; 130 Ctrl-C.
 - `keyfinder serve [--host] [--port] [--reload]` — uvicorn with factory `keyfinder.api:get_app`.
 - `keyfinder history [--limit 20]` — table of past runs.
 - `keyfinder show RUN_ID [--json]` — results table of a saved run.

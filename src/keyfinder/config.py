@@ -16,7 +16,11 @@ DEFAULT_USER_AGENT = (
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="KEYFINDER_", env_file=".env", extra="ignore")
+    # env_ignore_empty: `KEYFINDER_API_KEY=` (common in .env files and compose `${VAR:-}`) means
+    # "unset", not "the empty string", for every setting.
+    model_config = SettingsConfigDict(
+        env_prefix="KEYFINDER_", env_file=".env", extra="ignore", env_ignore_empty=True
+    )
 
     # Storage
     data_dir: Path = Field(default_factory=lambda: Path.home() / ".keyfinder")

@@ -287,3 +287,22 @@ async def _started(h: Harness) -> None:
     while not h.stores:
         await asyncio.sleep(0)
     await h.stores[0].started.wait()
+
+
+async def test_cancel_immediately_after_submit(make_manager: Callable[..., Harness]) -> None:
+    h = make_manager()
+    run = await h.manager.submit(params())
+    # No await in between: the task has not taken its first step yet.
+    assert await h.manager.cancel(run.id) is True
+    stored = await h.repo.get(run.id)
+    assert stored is not None and stored.status is RunStatus.CANCELLED
+    assert h.manager.active_count == 0
+
+
+async def test_shutdown_immediately_after_submit(make_manager: Callable[..., Harness]) -> None:
+    h = make_manager()
+    run = await h.manager.submit(params())
+    await h.manager.shutdown()
+    stored = await h.repo.get(run.id)
+    assert stored is not None and stored.status is RunStatus.CANCELLED
+    assert h.manager.active_count == 0

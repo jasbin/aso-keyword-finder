@@ -157,18 +157,27 @@ class JobManager:
             return False
         logger.info("run %s cancellation requested", run_id, extra={"run_id": run_id})
         await asyncio.wait({job.task})
+        await self._reap(job)
         return job.run.status is RunStatus.CANCELLED
 
     async def shutdown(self) -> None:
         """Refuse new runs, cancel the active ones and wait until they are stored as CANCELLED."""
         self._closing = True
-        tasks = [job.task for job in self._jobs.values() if job.task is not None]
-        if not tasks:
+        jobs = list(self._jobs.values())
+        if not jobs:
             return
-        logger.info("cancelling %d active run(s) for shutdown", len(tasks))
+        logger.info("cancelling %d active run(s) for shutdown", len(jobs))
+        tasks = [job.task for job in jobs if job.task is not None]
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        for job in jobs:
+            await self._reap(job)
+
+    async def _reap(self, job: _Job) -> None:
+        """Finalize a job whose task was cancelled before its first step (its handlers never ran)."""
+        if self._jobs.get(job.run.id) is job:
+            await self._finish_cancelled(job)
 
     # ------------------------------------------------------------------ execution
 

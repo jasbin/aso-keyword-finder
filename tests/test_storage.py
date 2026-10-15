@@ -67,7 +67,17 @@ async def test_init_creates_parent_dir_and_is_idempotent(tmp_path: Path) -> None
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         columns = {row[1] for row in conn.execute("PRAGMA table_info(runs)")}
         indexes = {row[1] for row in conn.execute("PRAGMA index_list(runs)")}
-    assert {"id", "created_at", "status", "seed", "store", "country", "keyword_count", "error", "data"} <= columns
+    assert {
+        "id",
+        "created_at",
+        "status",
+        "seed",
+        "store",
+        "country",
+        "keyword_count",
+        "error",
+        "data",
+    } <= columns
     assert "runs_created_at" in indexes
     repository.close()
 

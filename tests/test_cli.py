@@ -327,8 +327,8 @@ def test_history_lists_saved_runs(runner: CliRunner, factory: FactoryRecorder, i
 
     result = runner.invoke(cli.app, ["history"])
     assert result.exit_code == 0, result.output
-    assert first["id"] in result.stdout
-    assert second["id"] in result.stdout
+    assert first["id"][:12] in result.stdout
+    assert second["id"][:12] in result.stdout
     assert "succeeded" in result.stdout
 
     as_json = runner.invoke(cli.app, ["history", "--json", "--limit", "1"])
@@ -544,3 +544,48 @@ def test_main_maps_store_errors_to_exit_1(
 
     assert excinfo.value.code == 1
     assert "blocked" in capsys.readouterr().err
+
+
+def _save(data_dir: Path, *run_ids: str) -> None:
+    async def save() -> None:
+        repo = RunRepository(data_dir / "keyfinder.db")
+        try:
+            await repo.init()
+            for run_id in run_ids:
+                await repo.save(
+                    ResearchRun(id=run_id, params=ResearchParams(seed="yoga"), status=RunStatus.SUCCEEDED)
+                )
+        finally:
+            repo.close()
+
+    data_dir.mkdir(parents=True, exist_ok=True)
+    asyncio.run(save())
+
+
+def test_show_accepts_unique_id_prefix(runner: CliRunner, isolated_env: Path) -> None:
+    _save(isolated_env, "abcd1111", "abcd2222", "ffff0000")
+
+    unique = runner.invoke(cli.app, ["show", "abcd1", "--json"])
+    assert unique.exit_code == 0, unique.output
+    assert json.loads(unique.stdout)["id"] == "abcd1111"
+
+    ambiguous = runner.invoke(cli.app, ["show", "abcd"])
+    assert ambiguous.exit_code == 1
+    assert "ambiguous" in ambiguous.stderr
+    assert "abcd1111" in ambiguous.stderr and "abcd2222" in ambiguous.stderr
+
+    too_short = runner.invoke(cli.app, ["show", "fff"])
+    assert too_short.exit_code == 1
+    assert "no saved run" in too_short.stderr
+
+
+def test_history_shows_short_ids(runner: CliRunner, factory: FactoryRecorder) -> None:
+    run_id = research_json(runner)["id"]
+
+    result = runner.invoke(cli.app, ["history"])
+
+    assert run_id[:12] in result.stdout
+    assert run_id not in result.stdout
+    exported = runner.invoke(cli.app, ["export", run_id[:12], "-o", "short.csv"])
+    assert exported.exit_code == 0, exported.output
+    assert Path("short.csv").exists()

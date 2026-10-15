@@ -22,6 +22,7 @@ from typing import Annotated, Any, NoReturn, TypeVar
 
 import typer
 from pydantic import ValidationError
+from rich import box
 from rich.console import Console
 from rich.markup import escape
 from rich.progress import (
@@ -82,6 +83,9 @@ _client_factory: StoreClientFactory = create_store_client
 _STORE_NAMES = {Store.APPSTORE: "the App Store", Store.PLAY: "Google Play"}
 _EXPORT_SUFFIXES = (".csv", ".json")
 _STORAGE_ERRORS = (OSError, sqlite3.Error)
+_SHORT_ID_LENGTH = 12  # run ids shown by `history`; `show`/`export` accept any unique prefix
+_MIN_ID_PREFIX = 4
+_SCAN_PAGE_SIZE = 200
 _OPTION_NAMES = {"language": "--lang", "seed": "SEED"}
 _STAGE_LABELS = {
     Stage.QUEUED: "Starting",
@@ -283,7 +287,13 @@ def _root(
     ] = False,
     verbose: Annotated[
         int,
-        typer.Option("--verbose", "-v", count=True, help="More log output on stderr (-v info, -vv debug)."),
+        typer.Option(
+            "--verbose",
+            "-v",
+            count=True,
+            show_default=False,
+            help="More log output on stderr (-v info, -vv debug).",
+        ),
     ] = 0,
     log_format: Annotated[
         str | None,
@@ -525,18 +535,35 @@ async def _list_runs(settings: Settings, limit: int) -> list[RunSummary]:
         return await repo.list(limit=limit)
 
 
-async def _get_run(settings: Settings, run_id: str) -> ResearchRun | None:
+async def _find_run(settings: Settings, run_id: str) -> tuple[ResearchRun | None, list[str]]:
+    """Look a run up by exact id, else by unique id prefix (as shown by ``history``).
+
+    Returns ``(run, [])`` on a match, or ``(None, candidates)`` where ``candidates`` lists the
+    ids sharing the prefix (empty when nothing matches).
+    """
     with _repository(settings) as repo:
         await repo.init()
-        return await repo.get(run_id)
+        run = await repo.get(run_id)
+        if run is not None or len(run_id) < _MIN_ID_PREFIX:
+            return run, []
+        matches: list[str] = []
+        offset = 0
+        while page := await repo.list(limit=_SCAN_PAGE_SIZE, offset=offset):
+            matches.extend(summary.id for summary in page if summary.id.startswith(run_id))
+            offset += len(page)
+        if len(matches) == 1:
+            return await repo.get(matches[0]), []
+        return None, matches
 
 
 def _load_run(settings: Settings, run_id: str) -> ResearchRun:
     try:
-        run = _run_async(_get_run(settings, run_id))
+        run, candidates = _run_async(_find_run(settings, run_id.strip()))
     except _STORAGE_ERRORS as exc:
         _fail(f"cannot read the run history at {settings.db_path}: {exc}")
     if run is None:
+        if candidates:
+            _fail(f"run id {run_id!r} is ambiguous; it matches {', '.join(candidates)}")
         _fail(f"no saved run with id {run_id!r}. Run 'keyfinder history' to list saved runs.")
     return run
 
@@ -559,30 +586,31 @@ def history(
     if not runs:
         _stderr().print("No saved runs yet. Start one with 'keyfinder research SEED'.")
         return
-    table = Table(header_style="bold")
+    table = Table(header_style="bold", box=box.SIMPLE_HEAD, pad_edge=False)
     table.add_column("Run ID", no_wrap=True)
     table.add_column("Created (UTC)", no_wrap=True)
     table.add_column("Status", no_wrap=True)
-    table.add_column("Seed", overflow="fold")
     table.add_column("Store", no_wrap=True)
-    table.add_column("Country", no_wrap=True)
+    table.add_column("Seed", overflow="fold", ratio=1, min_width=8)
     table.add_column("Keywords", justify="right", no_wrap=True)
     for summary in runs:
         table.add_row(
-            summary.id,
+            summary.id[:_SHORT_ID_LENGTH],
             summary.created_at.strftime("%Y-%m-%d %H:%M"),
             Text(summary.status.value, style=_STATUS_STYLES[summary.status]),
+            f"{summary.params.store.value}/{summary.params.country}",
             Text(summary.params.seed),
-            summary.params.store.value,
-            summary.params.country,
             str(summary.keyword_count),
         )
     _stdout().print(table)
+    _stderr().print(
+        "[dim]Pass a run id or a unique prefix of it to 'keyfinder show' or 'keyfinder export'.[/]"
+    )
 
 
 @app.command()
 def show(
-    run_id: Annotated[str, typer.Argument(help="Run id, as listed by 'keyfinder history'.")],
+    run_id: Annotated[str, typer.Argument(help="Run id or a unique prefix of it (see 'keyfinder history').")],
     as_json: Annotated[bool, typer.Option("--json", help="Print the whole run as JSON.")] = False,
 ) -> None:
     """Show the results of a saved run."""
@@ -595,7 +623,7 @@ def show(
 
 @app.command()
 def export(
-    run_id: Annotated[str, typer.Argument(help="Run id, as listed by 'keyfinder history'.")],
+    run_id: Annotated[str, typer.Argument(help="Run id or a unique prefix of it (see 'keyfinder history').")],
     output: Annotated[
         Path,
         typer.Option("--output", "-o", help="Destination file (.csv or .json).", dir_okay=False),
@@ -695,8 +723,8 @@ def cache_stats(
         return
     ttl = settings.cache_ttl_seconds
     table = Table(show_header=False, box=None)
-    table.add_column(style="bold")
-    table.add_column()
+    table.add_column(style="bold", no_wrap=True)
+    table.add_column(overflow="fold")
     table.add_row("Cache file", escape(str(settings.cache_path)))
     table.add_row("TTL", f"{ttl} s" if ttl else "disabled (KEYFINDER_CACHE_TTL_SECONDS=0)")
     table.add_row("Stored entries", str(stats["entries"]))

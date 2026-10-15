@@ -284,8 +284,7 @@ async def test_queue_limit(make_manager: Callable[..., Harness], monkeypatch: py
 
 
 async def _started(h: Harness) -> None:
-    while not h.stores:
-        await asyncio.sleep(0)
+    # The client factory runs inside submit(), so the first store exists once submit returned.
     await h.stores[0].started.wait()
 
 

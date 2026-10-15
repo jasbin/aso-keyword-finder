@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>title</key>
+	<string>Suggestions</string>
+	<key>hints</key>
+	<array>
+		<dict>
+			<key>term</key>
+			<string>meditation</string>
+			<key>url</key>
+			<string>https://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?clientApplication=Software&amp;term=meditation</string>
+		</dict>
+		<dict>
+			<key>term</key>
+			<string>meditation app</string>
+			<key>url</key>
+			<string>https://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?clientApplication=Software&amp;term=meditation+app</string>
+		</dict>
+		<dict>
+			<key>term</key>
+			<string>meditation for sleep</string>
+			<key>url</key>
+			<string>https://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?clientApplication=Software&amp;term=meditation+for+sleep</string>
+		</dict>
+		<dict>
+			<key>term</key>
+			<string>meditation music</string>
+			<key>url</key>
+			<string>https://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?clientApplication=Software&amp;term=meditation+music</string>
+		</dict>
+		<dict>
+			<key>term</key>
+			<string>meditation timer</string>
+			<key>url</key>
+			<string>https://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?clientApplication=Software&amp;term=meditation+timer</string>
+		</dict>
+		<dict>
+			<key>term</key>
+			<string>meditation for beginners</string>
+			<key>url</key>
+			<string>https://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?clientApplication=Software&amp;term=meditation+for+beginners</string>
+		</dict>
+		<dict>
+			<key>term</key>
+			<string>meditation for anxiety</string>
+			<key>url</key>
+			<string>https://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?clientApplication=Software&amp;term=meditation+for+anxiety</string>
+		</dict>
+		<dict>
+			<key>term</key>
+			<string>meditation sounds</string>
+			<key>url</key>
+			<string>https://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?clientApplication=Software&amp;term=meditation+sounds</string>
+		</dict>
+		<dict>
+			<key>term</key>
+			<string>meditation for kids</string>
+			<key>url</key>
+			<string>https://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?clientApplication=Software&amp;term=meditation+for+kids</string>
+		</dict>
+		<dict>
+			<key>term</key>
+			<string>meditation bell</string>
+			<key>url</key>
+			<string>https://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?clientApplication=Software&amp;term=meditation+bell</string>
+		</dict>
+	</array>
+</dict>
+</plist>

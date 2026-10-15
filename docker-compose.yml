@@ -1,0 +1,21 @@
+services:
+  keyfinder:
+    build: .
+    image: aso-keyword-finder:latest
+    restart: unless-stopped
+    ports:
+      # Published on localhost only; put a TLS-terminating reverse proxy in front for remote access.
+      - "127.0.0.1:${KEYFINDER_PORT:-8000}:8000"
+    environment:
+      # Optional: when set (non-empty), every /api/* route except /api/meta requires this key.
+      # Provide it via your shell or a .env file next to this compose file.
+      KEYFINDER_API_KEY: ${KEYFINDER_API_KEY:-}
+      KEYFINDER_LOG_LEVEL: ${KEYFINDER_LOG_LEVEL:-INFO}
+      KEYFINDER_LOG_FORMAT: ${KEYFINDER_LOG_FORMAT:-json}
+      KEYFINDER_REQUEST_INTERVAL: ${KEYFINDER_REQUEST_INTERVAL:-0.3}
+      KEYFINDER_MAX_CONCURRENT_RUNS: ${KEYFINDER_MAX_CONCURRENT_RUNS:-2}
+    volumes:
+      - keyfinder-data:/data
+
+volumes:
+  keyfinder-data:

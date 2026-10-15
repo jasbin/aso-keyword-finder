@@ -1,0 +1,1258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>ASO Keyword Finder</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f5bd3'/%3E%3Ccircle cx='14' cy='14' r='6.5' fill='none' stroke='white' stroke-width='3'/%3E%3Cpath d='M19 19l6 6' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #dde1e7;
+  --border-strong: #c3c9d2;
+  --text: #1b1f24;
+  --text-muted: #5b6470;
+  --accent: #2f5bd3;
+  --accent-hover: #244bb5;
+  --accent-text: #ffffff;
+  --accent-soft: #e7edfc;
+  --focus: #2f5bd3;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --good-bg: #e3f5e8; --good-fg: #1d6b35;
+  --mid-bg: #fdf3d8;  --mid-fg: #7a5500;
+  --bad-bg: #fde7e4;  --bad-fg: #a3241a;
+  --none-bg: #eceef1; --none-fg: #5b6470;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .06);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216;
+    --surface: #171b21;
+    --surface-2: #1f242c;
+    --border: #2b313a;
+    --border-strong: #3b434e;
+    --text: #e6e9ee;
+    --text-muted: #9aa3ae;
+    --accent: #6d93f2;
+    --accent-hover: #86a6f5;
+    --accent-text: #0b1020;
+    --accent-soft: #1c2742;
+    --focus: #8fb0ff;
+    --danger: #f08a7e;
+    --danger-soft: #3a1d1a;
+    --good-bg: #173523; --good-fg: #8fdba6;
+    --mid-bg: #3a2f10;  --mid-fg: #f0cf7a;
+    --bad-bg: #401c19;  --bad-fg: #f6a197;
+    --none-bg: #252b33; --none-fg: #9aa3ae;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  }
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 var(--font);
+  overflow-x: hidden;
+}
+[hidden] { display: none !important; }
+a { color: var(--accent); }
+h1, h2, h3 { margin: 0; line-height: 1.25; }
+h2 { font-size: 1rem; font-weight: 600; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; margin: -1px; padding: 0; border: 0;
+}
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-muted); }
+
+/* Layout */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand h1 { font-size: 1.05rem; font-weight: 650; }
+.brand .version { font-size: .8rem; color: var(--text-muted); }
+.logo { width: 28px; height: 28px; flex: none; }
+.layout {
+  display: grid; gap: 16px; padding: 16px;
+  max-width: 1360px; margin: 0 auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 1000px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 300px; padding: 20px 24px; }
+  .history { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); }
+}
+.main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; min-width: 0;
+}
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+
+/* Forms */
+.form-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field.wide { grid-column: 1 / -1; }
+.field label, .field .label { font-size: .82rem; font-weight: 600; color: var(--text-muted); }
+.hint { font-size: .78rem; color: var(--text-muted); }
+input[type="text"], input[type="number"], input[type="password"], input[type="search"], select {
+  width: 100%; min-width: 0; font: inherit; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); padding: 8px 10px; min-height: 38px;
+}
+input:focus-visible, select:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; border-color: var(--focus); }
+input[aria-invalid="true"] { border-color: var(--danger); }
+.checks { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+.check { display: inline-flex; align-items: center; gap: 8px; font-size: .9rem; cursor: pointer; }
+.check input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
+.form-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font: inherit; font-size: .9rem; font-weight: 600; line-height: 1;
+  min-height: 36px; padding: 0 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+  cursor: pointer; white-space: nowrap;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-danger { color: var(--danger); }
+.btn-danger:hover { background: var(--danger-soft); }
+.btn-sm { min-height: 30px; padding: 0 10px; font-size: .82rem; }
+.btn-icon { min-height: 30px; width: 30px; padding: 0; }
+.btn-link {
+  background: none; border: 0; padding: 0; font: inherit; color: var(--accent);
+  cursor: pointer; text-decoration: underline;
+}
+
+/* Alerts */
+.alert {
+  border-radius: var(--radius-sm); padding: 10px 12px; font-size: .9rem;
+  border: 1px solid var(--border); background: var(--surface-2);
+}
+.alert-error { background: var(--danger-soft); border-color: transparent; color: var(--danger); }
+.alert strong { display: block; margin-bottom: 2px; }
+.keyform { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-top: 10px; }
+.keyform .field { flex: 1 1 200px; }
+
+/* Run status */
+.run-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.run-title h2 { font-size: 1.1rem; overflow-wrap: anywhere; }
+.run-sub { font-size: .85rem; color: var(--text-muted); margin-top: 2px; overflow-wrap: anywhere; }
+.badge {
+  display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px; background: var(--none-bg); color: var(--none-fg); white-space: nowrap;
+}
+.badge-running, .badge-pending { background: var(--accent-soft); color: var(--accent); }
+.badge-succeeded { background: var(--good-bg); color: var(--good-fg); }
+.badge-failed { background: var(--bad-bg); color: var(--bad-fg); }
+.badge-cancelled { background: var(--mid-bg); color: var(--mid-fg); }
+.progress-wrap { margin-top: 14px; }
+.progress-label { display: flex; justify-content: space-between; gap: 8px; font-size: .88rem; margin-bottom: 6px; }
+.progress-label .stage { font-weight: 600; }
+progress {
+  width: 100%; height: 8px; appearance: none; -webkit-appearance: none;
+  border: 0; border-radius: 999px; background: var(--surface-2); overflow: hidden; display: block;
+}
+progress::-webkit-progress-bar { background: var(--surface-2); border-radius: 999px; }
+progress::-webkit-progress-value { background: var(--accent); border-radius: 999px; transition: width .3s ease; }
+progress::-moz-progress-bar { background: var(--accent); border-radius: 999px; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 12px 0 0; padding: 0; font-size: .85rem; }
+.stats div { display: flex; gap: 6px; }
+.stats dt { color: var(--text-muted); }
+.stats dd { margin: 0; font-weight: 600; }
+.run-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Results */
+.filters { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 12px; }
+.summary { font-size: .88rem; color: var(--text-muted); margin: 0 0 10px; }
+.summary strong { color: var(--text); font-weight: 600; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; }
+th { background: var(--surface-2); font-size: .78rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; position: sticky; top: 0; }
+th.numcol, td.numcol { text-align: right; white-space: nowrap; }
+td:first-child { min-width: 170px; }
+th button {
+  font: inherit; color: inherit; background: none; border: 0; padding: 2px 0; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px; text-transform: uppercase; letter-spacing: .03em;
+}
+th button:hover { color: var(--text); }
+th .arrow { display: inline-block; width: 10px; font-size: .7rem; }
+tbody tr.row { cursor: pointer; }
+tbody tr.row:hover { background: var(--surface-2); }
+tbody tr.row.open { background: var(--accent-soft); }
+tbody tr:last-child td { border-bottom: 0; }
+.kw-btn {
+  font: inherit; color: var(--text); background: none; border: 0; padding: 0; cursor: pointer;
+  text-align: left; display: inline-flex; align-items: center; gap: 6px; font-weight: 500;
+}
+.kw-btn .chev { font-size: .7rem; color: var(--text-muted); transition: transform .15s ease; display: inline-block; }
+tr.open .kw-btn .chev { transform: rotate(90deg); }
+.pill {
+  display: inline-block; min-width: 40px; text-align: center; font-weight: 650;
+  font-variant-numeric: tabular-nums; font-size: .82rem; padding: 2px 8px; border-radius: 999px;
+}
+.pill-good { background: var(--good-bg); color: var(--good-fg); }
+.pill-mid { background: var(--mid-bg); color: var(--mid-fg); }
+.pill-bad { background: var(--bad-bg); color: var(--bad-fg); }
+.pill-none { background: var(--none-bg); color: var(--none-fg); font-weight: 500; }
+tr.detail td { background: var(--surface-2); padding: 12px 14px; }
+.apps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.apps li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: baseline; }
+.apps .rank { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: .82rem; text-align: right; }
+.apps .app-title { font-weight: 600; overflow-wrap: anywhere; }
+.apps .app-meta { font-size: .82rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.empty { padding: 24px 12px; text-align: center; color: var(--text-muted); font-size: .9rem; }
+
+/* History */
+.history { display: flex; flex-direction: column; }
+.history-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.history-item { display: flex; align-items: stretch; gap: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.history-item.current { border-color: var(--accent); background: var(--accent-soft); }
+.history-open {
+  flex: 1; min-width: 0; font: inherit; color: var(--text); background: none; border: 0; text-align: left;
+  padding: 8px 10px; cursor: pointer; border-radius: var(--radius-sm);
+}
+.history-open:hover { background: var(--surface-2); }
+.history-item.current .history-open:hover { background: transparent; }
+.h-top { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.h-seed { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.h-meta { font-size: .78rem; color: var(--text-muted); margin-top: 2px; }
+.history-item .btn-icon { align-self: center; margin-right: 6px; border-color: transparent; background: none; }
+.history-item .btn-icon:hover { background: var(--danger-soft); }
+
+@media (max-width: 520px) {
+  .topbar { padding: 12px 16px; }
+  .layout { padding: 12px; gap: 12px; }
+  .card { padding: 14px; }
+  .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-actions .btn-primary { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><circle cx="14" cy="14" r="6.5" fill="none" stroke="var(--accent-text)" stroke-width="3"/><path d="M19 19l6 6" stroke="var(--accent-text)" stroke-width="3" stroke-linecap="round"/></svg>
+    <h1>ASO Keyword Finder</h1>
+    <span class="version num" id="version"></span>
+  </div>
+  <button type="button" class="btn btn-sm" id="change-key" hidden>API key</button>
+</header>
+
+<div id="status" class="visually-hidden" role="status" aria-live="polite"></div>
+
+<div class="layout">
+  <main class="main">
+    <section class="card" id="auth-card" hidden aria-labelledby="auth-title">
+      <div class="alert">
+        <strong id="auth-title">API key required</strong>
+        <span id="auth-message">This server requires an API key. It is stored only in this browser.</span>
+      </div>
+      <form class="keyform" id="key-form" autocomplete="off">
+        <div class="field">
+          <label for="api-key">API key</label>
+          <input type="password" id="api-key" required spellcheck="false" autocomplete="off">
+        </div>
+        <button type="submit" class="btn btn-primary">Save key</button>
+        <button type="button" class="btn" id="key-cancel">Cancel</button>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="form-title">
+      <div class="card-head"><h2 id="form-title">New research</h2></div>
+      <form id="research-form" novalidate>
+        <div class="form-grid">
+          <div class="field wide">
+            <label for="seed">Seed keyword</label>
+            <input type="text" id="seed" name="seed" required maxlength="100" placeholder="e.g. habit tracker" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="store">Store</label>
+            <select id="store" name="store">
+              <option value="appstore">App Store</option>
+              <option value="play">Google Play</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="country-select" id="country-label">Country</label>
+            <select id="country-select" name="country"></select>
+            <input type="text" id="country-input" maxlength="2" pattern="[A-Za-z]{2}" value="us" hidden autocomplete="off" spellcheck="false" aria-describedby="country-hint">
+            <span class="hint" id="country-hint" hidden>Two-letter ISO code</span>
+          </div>
+          <div class="field">
+            <label for="language">Language</label>
+            <input type="text" id="language" name="language" value="en" maxlength="5" autocomplete="off" spellcheck="false" aria-describedby="language-hint">
+            <span class="hint" id="language-hint">e.g. en or en-gb</span>
+          </div>
+          <div class="field">
+            <label for="limit">Keyword limit</label>
+            <input type="number" id="limit" name="limit" value="50" min="5" max="300" step="1" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="depth">Depth</label>
+            <select id="depth" name="depth">
+              <option value="1">1 (seed + a–z)</option>
+              <option value="2">2 (expand results)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="probe" checked> Probe prefixes</label>
+            <label class="check"><input type="checkbox" id="difficulty" checked> Score difficulty</label>
+          </div>
+          <span class="hint" id="difficulty-hint" hidden>Difficulty is only available for the App Store.</span>
+        </div>
+        <div class="alert alert-error" id="form-error" role="alert" hidden></div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="submit-btn">Find keywords</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card" id="run-card" hidden aria-labelledby="run-seed">
+      <div class="card-head">
+        <div style="min-width:0">
+          <div class="run-title">
+            <h2 id="run-seed"></h2>
+            <span class="badge" id="run-badge"></span>
+          </div>
+          <div class="run-sub" id="run-sub"></div>
+        </div>
+        <div class="run-actions">
+          <button type="button" class="btn btn-danger btn-sm" id="cancel-btn" hidden>Cancel</button>
+          <button type="button" class="btn btn-sm" id="export-csv" hidden>Export CSV</button>
+          <button type="button" class="btn btn-sm" id="export-json" hidden>Export JSON</button>
+        </div>
+      </div>
+      <div class="progress-wrap" id="progress-wrap" hidden>
+        <div class="progress-label">
+          <span class="stage" id="stage-label"></span>
+          <span class="num muted" id="progress-count"></span>
+        </div>
+        <progress id="progress-bar" max="100" aria-labelledby="stage-label"></progress>
+      </div>
+      <dl class="stats num" id="run-stats">
+        <div><dt>Keywords</dt><dd id="stat-keywords">0</dd></div>
+        <div><dt>Requests</dt><dd id="stat-requests">0</dd></div>
+        <div><dt>Cache hits</dt><dd id="stat-cache">0</dd></div>
+        <div id="stat-duration-wrap" hidden><dt>Duration</dt><dd id="stat-duration"></dd></div>
+      </dl>
+      <div class="alert alert-error" id="run-error" role="alert" hidden style="margin-top:12px"></div>
+      <div class="alert" id="action-error" role="alert" hidden style="margin-top:12px"></div>
+    </section>
+
+    <section class="card" id="results-card" hidden aria-labelledby="results-title">
+      <div class="card-head"><h2 id="results-title">Results</h2></div>
+      <div class="filters" role="group" aria-label="Filter results">
+        <div class="field">
+          <label for="f-text">Keyword contains</label>
+          <input type="search" id="f-text" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <label for="f-pop">Min popularity</label>
+          <input type="number" id="f-pop" min="0" max="100" step="1" inputmode="numeric" placeholder="0">
+        </div>
+        <div class="field">
+          <label for="f-diff">Max difficulty</label>
+          <input type="number" id="f-diff" min="0" max="100" step="1" inputmode="numeric" placeholder="100">
+        </div>
+      </div>
+      <p class="summary" id="summary" aria-live="polite"></p>
+      <div class="table-wrap">
+        <table id="results-table">
+          <caption class="visually-hidden">Keyword results. Column headers are sort buttons; select a keyword to show its top apps.</caption>
+          <thead><tr id="results-head"></tr></thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <aside class="card history" aria-labelledby="history-title">
+    <div class="card-head">
+      <h2 id="history-title">History</h2>
+      <button type="button" class="btn btn-sm" id="history-refresh">Refresh</button>
+    </div>
+    <div class="alert alert-error" id="history-error" role="alert" hidden></div>
+    <ul class="history-list" id="history-list"></ul>
+    <p class="empty" id="history-empty" hidden>No runs yet.</p>
+  </aside>
+</div>
+
+<script>
+"use strict";
+(() => {
+  // ---------------------------------------------------------------- constants
+  const STORAGE_KEY = "keyfinder.apiKey";
+  const POLL_MS = 1000;
+  const STAGE_LABELS = {
+    queued: "Queued",
+    expanding: "Expanding",
+    probing: "Probing",
+    difficulty: "Scoring difficulty",
+    done: "Done",
+  };
+  const STATUS_LABELS = {
+    pending: "Pending",
+    running: "Running",
+    succeeded: "Succeeded",
+    failed: "Failed",
+    cancelled: "Cancelled",
+  };
+  const STORE_LABELS = { appstore: "App Store", play: "Google Play" };
+  const FINISHED = new Set(["succeeded", "failed", "cancelled"]);
+  const COLUMNS = [
+    { key: "keyword", label: "Keyword", numeric: false },
+    { key: "popularity", label: "Popularity", numeric: true, pill: "high-good" },
+    { key: "difficulty", label: "Difficulty", numeric: true, pill: "high-bad" },
+    { key: "opportunity", label: "Opportunity", numeric: true, pill: "high-good" },
+    { key: "chars_typed", label: "Chars typed", numeric: true },
+    { key: "position", label: "Position", numeric: true },
+  ];
+
+  // ---------------------------------------------------------------- state
+  const state = {
+    meta: null,
+    run: null,
+    pollTimer: null,
+    pollToken: 0,
+    sort: { key: null, dir: "desc" },
+    expanded: new Set(),
+    pendingRetry: null,
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  // ---------------------------------------------------------------- DOM helpers
+  function el(tag, attrs, children) {
+    const node = document.createElement(tag);
+    if (attrs) {
+      for (const [name, value] of Object.entries(attrs)) {
+        if (value === null || value === undefined || value === false) continue;
+        if (name === "className") node.className = value;
+        else if (name === "text") node.textContent = value;
+        else node.setAttribute(name, value === true ? "" : String(value));
+      }
+    }
+    for (const child of children || []) {
+      if (child === null || child === undefined) continue;
+      node.append(typeof child === "string" ? document.createTextNode(child) : child);
+    }
+    return node;
+  }
+
+  function show(node, visible) { node.hidden = !visible; }
+
+  function announce(message) {
+    const region = $("status");
+    region.textContent = "";
+    window.setTimeout(() => { region.textContent = message; }, 50);
+  }
+
+  function setAlert(node, title, message) {
+    node.replaceChildren();
+    if (!message && !title) { node.hidden = true; return; }
+    if (title) node.append(el("strong", { text: title }));
+    if (message) node.append(document.createTextNode(message));
+    node.hidden = false;
+  }
+
+  const numberFmt = new Intl.NumberFormat();
+  function fmtInt(n) { return n === null || n === undefined ? "—" : numberFmt.format(n); }
+
+  function fmtDate(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  }
+
+  function fmtDuration(startIso, endIso) {
+    if (!startIso || !endIso) return "";
+    const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
+    if (!Number.isFinite(ms) || ms < 0) return "";
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s}s`;
+    return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
+  }
+
+  // ---------------------------------------------------------------- API key storage
+  function loadKey() {
+    try { return window.localStorage.getItem(STORAGE_KEY) || ""; } catch { return ""; }
+  }
+  function saveKey(key) {
+    try {
+      if (key) window.localStorage.setItem(STORAGE_KEY, key);
+      else window.localStorage.removeItem(STORAGE_KEY);
+    } catch { /* storage unavailable: key lives for this page only */ }
+  }
+  let apiKey = loadKey();
+
+  // ---------------------------------------------------------------- API client
+  class ApiError extends Error {
+    constructor(status, message) {
+      super(message);
+      this.status = status;
+    }
+  }
+
+  function detailMessage(body, status) {
+    const detail = body && body.detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((item) => {
+        const loc = Array.isArray(item.loc) ? item.loc.filter((p) => p !== "body").join(".") : "";
+        return loc ? `${loc}: ${item.msg}` : String(item.msg || "invalid input");
+      }).join("; ");
+    }
+    return `Request failed (HTTP ${status})`;
+  }
+
+  async function apiFetch(path, options) {
+    const opts = options || {};
+    const headers = new Headers(opts.headers || {});
+    headers.set("Accept", opts.accept || "application/json");
+    if (apiKey) headers.set("X-API-Key", apiKey);
+    let body;
+    if (opts.json !== undefined) {
+      headers.set("Content-Type", "application/json");
+      body = JSON.stringify(opts.json);
+    }
+    let response;
+    try {
+      response = await fetch(path, { method: opts.method || "GET", headers, body, cache: "no-store" });
+    } catch {
+      throw new ApiError(0, "Cannot reach the server. Check your connection and try again.");
+    }
+    if (response.status === 401) {
+      showKeyForm(apiKey ? "The saved API key was rejected. Enter a valid key." : null, opts.retry || null);
+    }
+    if (!response.ok) {
+      let parsed = null;
+      try { parsed = await response.json(); } catch { /* non-JSON error body */ }
+      throw new ApiError(response.status, detailMessage(parsed, response.status));
+    }
+    return response;
+  }
+
+  async function apiJson(path, options) {
+    const response = await apiFetch(path, options);
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  // ---------------------------------------------------------------- API key form
+  function showKeyForm(message, retry) {
+    if (retry) state.pendingRetry = retry;
+    $("auth-message").textContent = message ||
+      "This server requires an API key. It is stored only in this browser.";
+    show($("auth-card"), true);
+    $("api-key").value = "";
+    $("api-key").focus();
+    announce("API key required");
+  }
+
+  function hideKeyForm() {
+    show($("auth-card"), false);
+    state.pendingRetry = null;
+  }
+
+  function onKeySubmit(event) {
+    event.preventDefault();
+    const value = $("api-key").value.trim();
+    if (!value) return;
+    apiKey = value;
+    saveKey(value);
+    const retry = state.pendingRetry;
+    hideKeyForm();
+    updateKeyButton();
+    announce("API key saved");
+    loadHistory();
+    if (retry) retry();
+  }
+
+  function updateKeyButton() {
+    show($("change-key"), Boolean(apiKey) || Boolean(state.meta && state.meta.auth_required));
+  }
+
+  // ---------------------------------------------------------------- meta / form
+  async function loadMeta() {
+    try {
+      state.meta = await apiJson("/api/meta");
+    } catch (err) {
+      setAlert($("form-error"), "Could not load server settings", err.message);
+      return;
+    }
+    $("version").textContent = state.meta.version ? `v${state.meta.version}` : "";
+    populateCountries(state.meta.countries || []);
+    applyLimits(state.meta.limits || {});
+    updateKeyButton();
+    if (state.meta.auth_required && !apiKey) showKeyForm(null, null);
+  }
+
+  const regionNames = (() => {
+    try { return new Intl.DisplayNames(undefined, { type: "region" }); } catch { return null; }
+  })();
+
+  function countryName(code) {
+    const upper = code.toUpperCase();
+    try {
+      return (regionNames && regionNames.of(upper)) || upper;
+    } catch {
+      return upper;
+    }
+  }
+
+  function populateCountries(codes) {
+    const select = $("country-select");
+    const options = codes
+      .map((code) => ({ code, name: countryName(code) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    select.replaceChildren(...options.map(({ code, name }) =>
+      el("option", { value: code, text: `${name} (${code.toUpperCase()})` })));
+    select.value = codes.includes("us") ? "us" : (codes[0] || "");
+  }
+
+  function applyLimits(limits) {
+    const limit = $("limit");
+    if (Array.isArray(limits.limit) && limits.limit.length === 2) {
+      limit.min = String(limits.limit[0]);
+      limit.max = String(limits.limit[1]);
+    }
+  }
+
+  function onStoreChange() {
+    const isPlay = $("store").value === "play";
+    const select = $("country-select");
+    const input = $("country-input");
+    show(select, !isPlay);
+    show(input, isPlay);
+    show($("country-hint"), isPlay);
+    $("country-label").htmlFor = isPlay ? "country-input" : "country-select";
+    if (isPlay && select.value) input.value = select.value;
+    if (!isPlay && input.value && [...select.options].some((o) => o.value === input.value.toLowerCase())) {
+      select.value = input.value.toLowerCase();
+    }
+    $("difficulty").disabled = isPlay;
+    show($("difficulty-hint"), isPlay);
+  }
+
+  function markInvalid(input, invalid) {
+    if (invalid) input.setAttribute("aria-invalid", "true");
+    else input.removeAttribute("aria-invalid");
+  }
+
+  function readForm() {
+    const errors = [];
+    const seedInput = $("seed");
+    const seed = seedInput.value.trim().replace(/\s+/g, " ");
+    markInvalid(seedInput, !seed);
+    if (!seed) errors.push("Enter a seed keyword.");
+
+    const store = $("store").value;
+    const countryInput = store === "play" ? $("country-input") : $("country-select");
+    const country = countryInput.value.trim().toLowerCase();
+    const countryOk = /^[a-z]{2}$/.test(country);
+    markInvalid(countryInput, !countryOk);
+    if (!countryOk) errors.push("Country must be a two-letter code, e.g. us.");
+
+    const langInput = $("language");
+    const language = langInput.value.trim().toLowerCase();
+    const langOk = /^[a-z]{2}(-[a-z]{2})?$/.test(language);
+    markInvalid(langInput, !langOk);
+    if (!langOk) errors.push("Language must look like en or en-gb.");
+
+    const limitInput = $("limit");
+    const limit = Number(limitInput.value);
+    const min = Number(limitInput.min);
+    const max = Number(limitInput.max);
+    const limitOk = Number.isInteger(limit) && limit >= min && limit <= max;
+    markInvalid(limitInput, !limitOk);
+    if (!limitOk) errors.push(`Keyword limit must be a whole number from ${min} to ${max}.`);
+
+    return {
+      errors,
+      params: {
+        seed,
+        store,
+        country,
+        language,
+        limit,
+        depth: Number($("depth").value),
+        probe: $("probe").checked,
+        difficulty: store === "appstore" && $("difficulty").checked,
+      },
+    };
+  }
+
+  async function onResearchSubmit(event) {
+    event.preventDefault();
+    setAlert($("form-error"), null, null);
+    const { errors, params } = readForm();
+    if (errors.length) {
+      setAlert($("form-error"), "Check the form", errors.join(" "));
+      announce("The form has errors");
+      return;
+    }
+    const button = $("submit-btn");
+    button.disabled = true;
+    try {
+      const run = await apiJson("/api/runs", {
+        method: "POST",
+        json: params,
+        retry: () => $("research-form").requestSubmit(),
+      });
+      announce(`Research started for ${run.params.seed}`);
+      openRunData(run);
+      loadHistory();
+    } catch (err) {
+      if (err.status !== 401) setAlert($("form-error"), "Could not start research", err.message);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  // ---------------------------------------------------------------- run view
+  function setUrlRun(id) {
+    try {
+      const url = new URL(window.location.href);
+      if (id) url.searchParams.set("run", id);
+      else url.searchParams.delete("run");
+      window.history.replaceState(null, "", url.toString());
+    } catch { /* history API unavailable */ }
+  }
+
+  function stopPolling() {
+    state.pollToken += 1;
+    if (state.pollTimer !== null) {
+      window.clearTimeout(state.pollTimer);
+      state.pollTimer = null;
+    }
+  }
+
+  function startPolling(id) {
+    stopPolling();
+    const token = state.pollToken;
+    const tick = async () => {
+      state.pollTimer = null;
+      let run;
+      try {
+        run = await apiJson(`/api/runs/${encodeURIComponent(id)}`, {
+          retry: () => { if (token === state.pollToken) startPolling(id); },
+        });
+      } catch (err) {
+        if (token !== state.pollToken) return;
+        if (err.status === 404) {
+          setAlert($("action-error"), "Run not found", "It may have been deleted.");
+          return;
+        }
+        if (err.status === 401) return;
+        setAlert($("action-error"), "Connection problem", `${err.message} Retrying…`);
+        state.pollTimer = window.setTimeout(tick, POLL_MS * 3);
+        return;
+      }
+      if (token !== state.pollToken) return;
+      setAlert($("action-error"), null, null);
+      const wasActive = state.run && !FINISHED.has(state.run.status);
+      renderRun(run);
+      if (FINISHED.has(run.status)) {
+        if (wasActive) {
+          announce(`Run ${STATUS_LABELS[run.status].toLowerCase()}${run.status === "succeeded" ? `: ${run.results.length} keywords` : ""}`);
+          loadHistory();
+        }
+        return;
+      }
+      state.pollTimer = window.setTimeout(tick, POLL_MS);
+    };
+    state.pollTimer = window.setTimeout(tick, POLL_MS);
+  }
+
+  function openRunData(run) {
+    stopPolling();
+    state.expanded.clear();
+    state.run = null;
+    setUrlRun(run.id);
+    renderRun(run);
+    highlightHistory();
+    if (!FINISHED.has(run.status)) startPolling(run.id);
+  }
+
+  async function openRun(id) {
+    setAlert($("action-error"), null, null);
+    try {
+      const run = await apiJson(`/api/runs/${encodeURIComponent(id)}`, { retry: () => openRun(id) });
+      openRunData(run);
+      $("run-card").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) {
+      if (err.status === 401) return;
+      if (err.status === 404) {
+        setUrlRun(null);
+        setAlert($("form-error"), "Run not found", "The linked run no longer exists.");
+      } else {
+        setAlert($("form-error"), "Could not open run", err.message);
+      }
+    }
+  }
+
+  function closeRun() {
+    stopPolling();
+    state.run = null;
+    state.expanded.clear();
+    setUrlRun(null);
+    show($("run-card"), false);
+    show($("results-card"), false);
+    highlightHistory();
+  }
+
+  function describeParams(params) {
+    const parts = [
+      STORE_LABELS[params.store] || params.store,
+      params.country.toUpperCase(),
+      params.language,
+      `limit ${params.limit}`,
+      `depth ${params.depth}`,
+    ];
+    if (!params.probe) parts.push("no probing");
+    if (!params.difficulty) parts.push("no difficulty");
+    return parts.join(" · ");
+  }
+
+  function renderRun(run) {
+    const prevStatus = state.run ? state.run.status : null;
+    const prevId = state.run ? state.run.id : null;
+    state.run = run;
+    show($("run-card"), true);
+    $("run-seed").textContent = run.params.seed;
+    const badge = $("run-badge");
+    badge.textContent = STATUS_LABELS[run.status] || run.status;
+    badge.className = `badge badge-${run.status}`;
+    $("run-sub").textContent = `${describeParams(run.params)} · ${fmtDate(run.created_at)}`;
+
+    renderProgress(run);
+
+    const active = !FINISHED.has(run.status);
+    show($("cancel-btn"), active);
+    $("cancel-btn").disabled = false;
+    const succeeded = run.status === "succeeded";
+    show($("export-csv"), succeeded);
+    show($("export-json"), succeeded);
+
+    $("run-error").classList.toggle("alert-error", run.status !== "cancelled");
+    if (run.status === "failed") {
+      setAlert($("run-error"), "Research failed", run.error || "Unknown error.");
+    } else if (run.status === "cancelled") {
+      setAlert($("run-error"), "Run cancelled", run.error || "The run was stopped before it finished.");
+    } else {
+      setAlert($("run-error"), null, null);
+    }
+
+    const resultsChanged = prevId !== run.id || prevStatus !== run.status;
+    if (succeeded) {
+      if (resultsChanged) renderResultsCard();
+    } else {
+      show($("results-card"), false);
+    }
+  }
+
+  function renderProgress(run) {
+    const p = run.progress || {};
+    const active = !FINISHED.has(run.status);
+    show($("progress-wrap"), active);
+    if (active) {
+      const stage = run.status === "pending" ? "queued" : p.stage;
+      $("stage-label").textContent = STAGE_LABELS[stage] || stage || "Working";
+      const bar = $("progress-bar");
+      if (p.total > 0) {
+        bar.max = p.total;
+        bar.value = Math.min(p.done, p.total);
+        $("progress-count").textContent = `${fmtInt(p.done)} / ${fmtInt(p.total)}`;
+      } else {
+        bar.removeAttribute("value");
+        $("progress-count").textContent = "";
+      }
+    }
+    const keywords = run.status === "succeeded" ? run.results.length : p.keywords;
+    $("stat-keywords").textContent = fmtInt(keywords || 0);
+    $("stat-requests").textContent = fmtInt(p.requests || 0);
+    $("stat-cache").textContent = fmtInt(p.cache_hits || 0);
+    const duration = fmtDuration(run.started_at, run.finished_at);
+    $("stat-duration").textContent = duration;
+    show($("stat-duration-wrap"), Boolean(duration));
+  }
+
+  async function onCancel() {
+    if (!state.run) return;
+    const id = state.run.id;
+    const button = $("cancel-btn");
+    button.disabled = true;
+    try {
+      const res = await apiJson(`/api/runs/${encodeURIComponent(id)}/cancel`, {
+        method: "POST",
+        retry: onCancel,
+      });
+      announce(res && res.cancelled ? "Cancelling run" : "Run already finished");
+    } catch (err) {
+      button.disabled = false;
+      if (err.status !== 401) setAlert($("action-error"), "Could not cancel", err.message);
+    }
+  }
+
+  // ---------------------------------------------------------------- export
+  function filenameFrom(response, fallback) {
+    const header = response.headers.get("Content-Disposition") || "";
+    const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(header);
+    if (star) {
+      try { return decodeURIComponent(star[1].trim().replace(/^"|"$/g, "")); } catch { /* fall through */ }
+    }
+    const plain = /filename="?([^";]+)"?/i.exec(header);
+    return plain ? plain[1].trim() : fallback;
+  }
+
+  async function onExport(format) {
+    if (!state.run) return;
+    const run = state.run;
+    const button = $(format === "csv" ? "export-csv" : "export-json");
+    button.disabled = true;
+    try {
+      const response = await apiFetch(
+        `/api/runs/${encodeURIComponent(run.id)}/export?format=${format}`,
+        { accept: format === "csv" ? "text/csv" : "application/json", retry: () => onExport(format) },
+      );
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = el("a", { href: url, download: filenameFrom(response, `keywords-${run.id.slice(0, 8)}.${format}`) });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      announce(`${format.toUpperCase()} export downloaded`);
+    } catch (err) {
+      if (err.status !== 401) setAlert($("action-error"), "Export failed", err.message);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  // ---------------------------------------------------------------- results
+  function pillClass(value, mode) {
+    if (value === null || value === undefined) return "pill-none";
+    const score = mode === "high-bad" ? 100 - value : value;
+    if (score >= 60) return "pill-good";
+    if (score >= 35) return "pill-mid";
+    return "pill-bad";
+  }
+
+  function pill(value, mode) {
+    const text = value === null || value === undefined ? "—" : String(value);
+    const node = el("span", { className: `pill ${pillClass(value, mode)}`, text });
+    if (value === null || value === undefined) node.setAttribute("aria-label", "not available");
+    return node;
+  }
+
+  function readFilters() {
+    const text = $("f-text").value.trim().toLowerCase();
+    const popRaw = $("f-pop").value.trim();
+    const diffRaw = $("f-diff").value.trim();
+    const minPop = popRaw === "" ? null : Number(popRaw);
+    const maxDiff = diffRaw === "" ? null : Number(diffRaw);
+    return {
+      text,
+      minPop: Number.isFinite(minPop) ? minPop : null,
+      maxDiff: Number.isFinite(maxDiff) ? maxDiff : null,
+    };
+  }
+
+  function filterResults(results, f) {
+    return results.filter((r) => {
+      if (f.text && !r.keyword.includes(f.text)) return false;
+      if (f.minPop !== null && r.popularity < f.minPop) return false;
+      if (f.maxDiff !== null && r.difficulty !== null && r.difficulty !== undefined && r.difficulty > f.maxDiff) return false;
+      return true;
+    });
+  }
+
+  function sortResults(results) {
+    const { key, dir } = state.sort;
+    if (!key) return results.slice();
+    const sign = dir === "asc" ? 1 : -1;
+    return results.slice().sort((a, b) => {
+      const va = a[key];
+      const vb = b[key];
+      const aNull = va === null || va === undefined;
+      const bNull = vb === null || vb === undefined;
+      if (aNull && bNull) return a.keyword.localeCompare(b.keyword);
+      if (aNull) return 1;
+      if (bNull) return -1;
+      const cmp = typeof va === "string" ? va.localeCompare(vb) : va - vb;
+      return cmp !== 0 ? cmp * sign : a.keyword.localeCompare(b.keyword);
+    });
+  }
+
+  function renderHead() {
+    const row = $("results-head");
+    row.replaceChildren(...COLUMNS.map((col) => {
+      const active = state.sort.key === col.key;
+      const ariaSort = active ? (state.sort.dir === "asc" ? "ascending" : "descending") : "none";
+      const arrow = active ? (state.sort.dir === "asc" ? "▲" : "▼") : "";
+      const button = el("button", { type: "button", "data-key": col.key }, [
+        col.label,
+        el("span", { className: "arrow", "aria-hidden": "true", text: arrow }),
+      ]);
+      button.addEventListener("click", () => onSort(col.key, col.numeric));
+      return el("th", { scope: "col", className: col.numeric ? "numcol" : null, "aria-sort": ariaSort }, [button]);
+    }));
+  }
+
+  function onSort(key, numeric) {
+    if (state.sort.key === key) {
+      state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc";
+    } else {
+      state.sort = { key, dir: numeric && key !== "chars_typed" && key !== "position" ? "desc" : "asc" };
+    }
+    renderTable();
+    const col = COLUMNS.find((c) => c.key === key);
+    announce(`Sorted by ${col.label}, ${state.sort.dir === "asc" ? "ascending" : "descending"}`);
+    const button = $("results-head").querySelector(`button[data-key="${key}"]`);
+    if (button) button.focus();
+  }
+
+  function appMeta(app) {
+    const parts = [];
+    if (app.developer) parts.push(app.developer);
+    parts.push(`${fmtInt(app.ratings)} ratings`);
+    if (app.rating !== null && app.rating !== undefined) parts.push(`${Number(app.rating).toFixed(1)} ★`);
+    return parts.join(" · ");
+  }
+
+  function safeHttpUrl(raw) {
+    if (!raw) return null;
+    try {
+      const url = new URL(raw);
+      return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function renderDetailRow(result, detailId) {
+    let content;
+    if (result.top_apps && result.top_apps.length) {
+      content = el("ol", { className: "apps", "aria-label": `Top apps for ${result.keyword}` },
+        result.top_apps.map((app, i) => {
+          const href = safeHttpUrl(app.url);
+          const title = href
+            ? el("a", { className: "app-title", href, target: "_blank", rel: "noopener noreferrer", text: app.title })
+            : el("span", { className: "app-title", text: app.title });
+          return el("li", null, [
+            el("span", { className: "rank", "aria-hidden": "true", text: `${i + 1}.` }),
+            el("div", null, [title, el("div", { className: "app-meta num", text: appMeta(app) })]),
+          ]);
+        }));
+    } else {
+      const params = state.run ? state.run.params : null;
+      const why = params && !params.difficulty
+        ? "Difficulty scoring was off for this run, so no top apps were fetched."
+        : "No top apps available for this keyword.";
+      content = el("p", { className: "muted", text: why, style: "margin:0" });
+    }
+    return el("tr", { className: "detail", id: detailId }, [el("td", { colspan: COLUMNS.length }, [content])]);
+  }
+
+  function renderRow(result, index) {
+    const open = state.expanded.has(result.keyword);
+    const detailId = `detail-${index}`;
+    const kwButton = el("button", {
+      type: "button", className: "kw-btn", "aria-expanded": open ? "true" : "false", "aria-controls": open ? detailId : null,
+    }, [el("span", { className: "chev", "aria-hidden": "true", text: "▶" }), result.keyword]);
+    const row = el("tr", { className: open ? "row open" : "row" }, [
+      el("td", null, [kwButton]),
+      el("td", { className: "numcol" }, [pill(result.popularity, "high-good")]),
+      el("td", { className: "numcol" }, [pill(result.difficulty, "high-bad")]),
+      el("td", { className: "numcol" }, [pill(result.opportunity, "high-good")]),
+      el("td", { className: "numcol num", text: fmtInt(result.chars_typed) }),
+      el("td", { className: "numcol num", text: fmtInt(result.position) }),
+    ]);
+    row.addEventListener("click", (event) => {
+      if (event.target.closest("a")) return;
+      toggleRow(result.keyword);
+    });
+    const rows = [row];
+    if (open) rows.push(renderDetailRow(result, detailId));
+    return rows;
+  }
+
+  function toggleRow(keyword) {
+    if (state.expanded.has(keyword)) state.expanded.delete(keyword);
+    else state.expanded.add(keyword);
+    renderTable();
+    const buttons = $("results-body").querySelectorAll(".kw-btn");
+    for (const button of buttons) {
+      if (button.lastChild && button.lastChild.textContent === keyword) { button.focus(); break; }
+    }
+  }
+
+  function renderSummary(all, shown) {
+    const summary = $("summary");
+    summary.replaceChildren();
+    if (!all.length) {
+      summary.textContent = "No keywords were found for this seed.";
+      return;
+    }
+    const best = all.reduce((acc, r) => {
+      const score = r.opportunity ?? r.popularity;
+      return acc === null || score > acc.score ? { r, score } : acc;
+    }, null);
+    const avgPop = Math.round(all.reduce((s, r) => s + r.popularity, 0) / all.length);
+    summary.append(
+      "Showing ", el("strong", { className: "num", text: fmtInt(shown.length) }),
+      " of ", el("strong", { className: "num", text: fmtInt(all.length) }), " keywords · average popularity ",
+      el("strong", { className: "num", text: String(avgPop) }),
+    );
+    if (best) {
+      summary.append(" · top pick ", el("strong", { text: best.r.keyword }),
+        ` (${best.r.opportunity !== null && best.r.opportunity !== undefined ? "opportunity" : "popularity"} `,
+        el("span", { className: "num", text: String(best.score) }), ")");
+    }
+  }
+
+  function renderTable() {
+    if (!state.run || state.run.status !== "succeeded") return;
+    const all = state.run.results || [];
+    const shown = sortResults(filterResults(all, readFilters()));
+    renderHead();
+    renderSummary(all, shown);
+    const body = $("results-body");
+    if (!shown.length) {
+      const msg = all.length ? "No keywords match the current filters." : "No keywords found.";
+      body.replaceChildren(el("tr", null, [el("td", { colspan: COLUMNS.length, className: "empty", text: msg })]));
+      return;
+    }
+    body.replaceChildren(...shown.flatMap((r, i) => renderRow(r, i)));
+  }
+
+  function renderResultsCard() {
+    show($("results-card"), true);
+    renderTable();
+  }
+
+  // ---------------------------------------------------------------- history
+  function highlightHistory() {
+    const current = state.run ? state.run.id : null;
+    for (const item of $("history-list").children) {
+      const isCurrent = item.dataset.id === current;
+      item.classList.toggle("current", isCurrent);
+      const open = item.querySelector(".history-open");
+      if (open) {
+        if (isCurrent) open.setAttribute("aria-current", "true");
+        else open.removeAttribute("aria-current");
+      }
+    }
+  }
+
+  function renderHistoryItem(run) {
+    const p = run.params;
+    const open = el("button", { type: "button", className: "history-open" }, [
+      el("div", { className: "h-top" }, [
+        el("span", { className: "h-seed", text: p.seed }),
+        el("span", { className: `badge badge-${run.status}`, text: STATUS_LABELS[run.status] || run.status }),
+      ]),
+      el("div", { className: "h-meta num", text:
+        `${STORE_LABELS[p.store] || p.store} · ${p.country.toUpperCase()} · ${fmtInt(run.keyword_count)} keywords` }),
+      el("div", { className: "h-meta", text: fmtDate(run.created_at) }),
+    ]);
+    open.addEventListener("click", () => openRun(run.id));
+    const del = el("button", {
+      type: "button", className: "btn btn-icon btn-danger", "aria-label": `Delete run for ${p.seed}`, title: "Delete",
+    }, [el("span", { "aria-hidden": "true", text: "✕" })]);
+    del.addEventListener("click", () => deleteRun(run.id, p.seed));
+    return el("li", { className: "history-item", "data-id": run.id }, [open, del]);
+  }
+
+  async function loadHistory() {
+    const list = $("history-list");
+    setAlert($("history-error"), null, null);
+    let runs;
+    try {
+      runs = await apiJson("/api/runs?limit=50&offset=0");
+    } catch (err) {
+      if (err.status !== 401) setAlert($("history-error"), "Could not load history", err.message);
+      else setAlert($("history-error"), null, "Enter the API key to see history.");
+      return;
+    }
+    list.replaceChildren(...runs.map(renderHistoryItem));
+    show($("history-empty"), runs.length === 0);
+    highlightHistory();
+  }
+
+  async function deleteRun(id, seed) {
+    if (!window.confirm(`Delete the run for "${seed}"? This cannot be undone.`)) return;
+    try {
+      await apiJson(`/api/runs/${encodeURIComponent(id)}`, { method: "DELETE", retry: () => deleteRun(id, seed) });
+      if (state.run && state.run.id === id) closeRun();
+      announce("Run deleted");
+      loadHistory();
+    } catch (err) {
+      if (err.status === 401) return;
+      const message = err.status === 409 ? "The run is still active. Cancel it first." : err.message;
+      setAlert($("history-error"), "Could not delete run", message);
+    }
+  }
+
+  // ---------------------------------------------------------------- init
+  function bindEvents() {
+    $("research-form").addEventListener("submit", onResearchSubmit);
+    $("store").addEventListener("change", onStoreChange);
+    $("key-form").addEventListener("submit", onKeySubmit);
+    $("key-cancel").addEventListener("click", hideKeyForm);
+    $("change-key").addEventListener("click", () => showKeyForm("Enter a new API key. It replaces the one saved in this browser.", null));
+    $("cancel-btn").addEventListener("click", onCancel);
+    $("export-csv").addEventListener("click", () => onExport("csv"));
+    $("export-json").addEventListener("click", () => onExport("json"));
+    $("history-refresh").addEventListener("click", loadHistory);
+    for (const id of ["f-text", "f-pop", "f-diff"]) $(id).addEventListener("input", renderTable);
+  }
+
+  function initialRunId() {
+    try {
+      return new URL(window.location.href).searchParams.get("run");
+    } catch {
+      return null;
+    }
+  }
+
+  async function init() {
+    bindEvents();
+    onStoreChange();
+    await loadMeta();
+    onStoreChange();
+    const runId = initialRunId();
+    if (runId) openRun(runId);
+    loadHistory();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
